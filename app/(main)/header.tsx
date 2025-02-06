@@ -8,28 +8,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/clerk-expo";
+import { router } from "expo-router";
 
 const Header = () => {
-  const { isSignedIn, signOut } = useAuth();
-
-  const handleSignOut = () => {
-    Alert.alert(
-      "Confirmation",
-      "Êtes-vous sûr de vouloir vous déconnecter ?",
-      [
-        {
-          text: "Annuler",
-          style: "cancel",
-        },
-        {
-          text: "Se déconnecter",
-          onPress: () => signOut(),
-          style: "destructive",
-        },
-      ],
-      { cancelable: true }
-    );
-  };
+  const { isSignedIn } = useAuth();
 
   // Ne pas afficher le bouton de déconnexion si l'utilisateur n'est pas connecté
   if (!isSignedIn) {
@@ -39,8 +21,8 @@ const Header = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleSignOut} style={styles.iconButton}>
-          <Ionicons name="log-out-outline" size={24} color="white" />
+        <TouchableOpacity onPress={() => router.push("/profile")} style={styles.iconButton}>
+          <Ionicons name="person-circle" size={24} color="white" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>

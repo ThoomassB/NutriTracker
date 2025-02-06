@@ -24,7 +24,7 @@ const HomeScreen = () => {
         )}
         <View style={styles.mealInfo}>
           <Text style={styles.mealName}>{item.name}</Text>
-          <Text style={styles.mealCalories}>{item.calories} kcal</Text>
+          <Text style={styles.mealCalories}>{item.foods.reduce((acc, food) => acc + food.food.nutrients.ENERC_KCAL, 0)} kcal</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -41,6 +41,7 @@ const HomeScreen = () => {
         style={styles.addButton}
         onPress={() => router.push("/add")}
       >
+      
         <Ionicons name="add" size={24} color="white" />
       </TouchableOpacity>
     </SafeAreaView>
