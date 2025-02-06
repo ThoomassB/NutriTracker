@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  FlatList,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,14 +55,32 @@ const DetailScreen = () => {
         <Image source={{ uri: meal.image }} style={styles.mealImage} />
       )}
       <Text style={styles.mealName}>{meal.name}</Text>
-      <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
+      <Text style={styles.label}>Nom : <Text style={styles.value}>{meal?.name}</Text></Text>
+
+      <Text style={styles.label}>Nombre d'aliments : <Text style={styles.value}>{meal?.foods.length}</Text></Text>
+
+      <Text style={styles.label}>Calories : <Text style={styles.value}>{meal?.foods.reduce((acc, food) => acc + food.food.nutrients.ENERC_KCAL, 0)} KCAL</Text></Text>
+
+      <Text style={styles.label}>Protéines : <Text style={styles.value}>{meal?.foods.reduce((acc, food) => acc + food.food.nutrients.PROCNT, 0)} g</Text></Text>
+
+      <Text style={styles.label}>Glucides : <Text style={styles.value}>{meal?.foods.reduce((acc, food) => acc + food.food.nutrients.CHOCDF, 0)} g</Text></Text>
+
+      <Text style={styles.label}>Lipides : <Text style={styles.value}>{meal?.foods.reduce((acc, food) => acc + food.food.nutrients.FAT, 0)} g</Text></Text>
+
+      <FlatList
+                data={meal?.foods}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                    <View style={styles.foodItemContainer}>
+                        <Image source={{ uri: item.food.image }} style={styles.foodItemImage} />
+                        <View style={styles.foodItemTextContainer}>
+                            <Text style={styles.foodItemText}>{item.food.label}</Text>
+                        </View>
+                    </View>
+                )}
+            />
+
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => router.push("/")}
-        >
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={confirmDelete}>
           <Ionicons name="trash" size={24} color="black" />
         </TouchableOpacity>
@@ -101,6 +120,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
+  },
+  foodItemImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
   },
 });
 
