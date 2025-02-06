@@ -12,7 +12,7 @@ export default function AuthRoutesLayout() {
     <Stack>
       <Stack.Screen name="index" options={{ title: "Accueil" }} />
 
-      <Stack.Screen name="add" options={{ title: "Ajouter un repas" }} />
+      <Stack.Screen name="add" options={{ title: "" }} />
 
       <Stack.Screen name="[id]" options={{ title: "Détail du repas" }} />
 
