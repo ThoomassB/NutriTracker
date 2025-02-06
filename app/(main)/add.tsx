@@ -1,128 +1,278 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
+  Text,
   TextInput,
   Button,
-  StyleSheet,
-  Alert,
-  Image,
+  FlatList,
   TouchableOpacity,
-  Text,
+  StyleSheet,
+  ScrollView,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useMeals } from "../../context/MealsContext";
-import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CameraView, useCameraPermissions, BarcodeScanningResult, CameraType } from "expo-camera";
 
-const AddMealScreen = () => {
-  const [name, setName] = useState("");
-  const [calories, setCalories] = useState("");
-  const [image, setImage] = useState<string | null>(null);
+
+const [selectedFoods, setSelectedFoods] = useState<string[]>([]);
+
+const EDAMAM_API_ID = process.env.EXPO_PUBLIC_EDAMAM_API_ID;
+const EDAMAM_API_KEY = process.env.EXPO_PUBLIC_EDAMAM_API_KEY;
+
+export default function AddRepas() {
   const router = useRouter();
-  const { addMeal } = useMeals();
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState([]);
+  const [selectedFoods, setSelectedFoods] = useState([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
 
-  const handleAddMeal = () => {
-    if (name && calories) {
-      const newMeal = {
-        id: Date.now(),
-        name,
-        calories: parseInt(calories),
-        image,
+  useEffect(() => {
+    if (!permission) {
+      requestPermission();
+    }
+  }, [permission]);
+
+  const searchFood = async () => {
+    if (!search) return;
+    try {
+      const response = await fetch(
+        `https://api.edamam.com/auto-complete?app_id=${EDAMAM_API_ID}&app_key=${EDAMAM_API_KEY}&q=${search}`
+      );
+      const data = await response.json();
+      setResults(data.slice(0, 5));
+    } catch (error) {
+      console.error("Erreur lors de la recherche :", error);
+    }
+  };
+
+  const addFood = (food: never) => {
+    if (!selectedFoods.includes(food)) {
+      setSelectedFoods([...selectedFoods, food]);
+    }
+  };
+
+  const saveRepas = async () => {
+    if (selectedFoods.length === 0) return;
+
+    try {
+      const newRepas = {
+        id: Math.floor(Math.random() * 50000) + 1,
+        foods: selectedFoods,
+        date: new Date().toISOString(),
       };
-      addMeal(newMeal);
-      Alert.alert("Succès", "Repas ajouté avec succès !");
+
+      const storedRepas = await AsyncStorage.getItem("repas");
+      const repas = storedRepas ? JSON.parse(storedRepas) : [];
+
+      repas.push(newRepas);
+      await AsyncStorage.setItem("repas", JSON.stringify(repas));
+
       router.push("/");
-    } else {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs.");
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement du repas :", error);
     }
   };
 
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
+    if (scanned) return;
+    setScanned(true);
+    setIsScanning(false);
+    try {
+      const response = await fetch(
+        `https://api.edamam.com/auto-complete?app_id=${EDAMAM_API_ID}&app_key=${EDAMAM_API_KEY}&upc=${data}`
+      );
+      const result = await response.json();
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      if (result.length > 0) {
+        addFood(result[0]);
+      } else {
+        alert("Aucun aliment trouvé pour ce QR code.");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la recherche de l'aliment :", error);
     }
-  };
 
-  const takePhoto = async () => {
-    let result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    setTimeout(() => setScanned(false), 2000);
   };
 
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Ajouter un repas</Text>
+
       <TextInput
+        placeholder="Rechercher un aliment..."
+        value={search}
+        onChangeText={setSearch}
         style={styles.input}
-        placeholder="Nom du repas"
-        value={name}
-        onChangeText={setName}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Calories"
-        value={calories}
-        onChangeText={setCalories}
-        keyboardType="numeric"
+      <TouchableOpacity style={styles.button} onPress={searchFood}>
+        <Text style={styles.buttonText}>Rechercher</Text>
+      </TouchableOpacity>
+
+      <FlatList
+        data={results}
+        keyExtractor={(item, index) => index.toString()}
+        style={styles.list}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => addFood(item)}
+            style={styles.listItem}
+          >
+            <Text style={styles.foodText}>{item}</Text>
+          </TouchableOpacity>
+        )}
       />
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-          <Text style={styles.imagePickerText}>Ajouter une photo</Text>
+
+      {selectedFoods.length > 0 && (
+        <View style={styles.selectedContainer}>
+          <Text style={styles.subtitle}>Aliments sélectionnés :</Text>
+          <ScrollView style={styles.selectedScroll}>
+            {selectedFoods.map((food, index) => (
+              <Text key={index} style={styles.selectedFood}>
+                🍽 {food}
+              </Text>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {selectedFoods.length > 0 && (
+        <TouchableOpacity style={styles.button} onPress={saveRepas}>
+          <Text style={styles.buttonText}>Valider le repas</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.imagePicker} onPress={takePhoto}>
-          <Text style={styles.imagePickerText}>Prendre une photo</Text>
-        </TouchableOpacity>
-      </View>
-      {image && <Image source={{ uri: image }} style={styles.image} />}
-      <Button title="Ajouter" onPress={handleAddMeal} />
+      )}
+
+      <TouchableOpacity
+        style={styles.scanButton}
+        onPress={() => setIsScanning(true)}
+      >
+        <Text style={styles.scanButtonText}>📷 Scanner</Text>
+      </TouchableOpacity>
+
+      <Modal visible={isScanning} animationType="slide">
+        <View style={styles.cameraContainer}>
+        <CameraView
+          cameraType={CameraType.back}
+          barcodeScannerEnabled={true}
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          style={StyleSheet.absoluteFillObject}
+        />
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setIsScanning(false)}
+          >
+            <Text style={styles.closeButtonText}>❌ Fermer</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
-};
+}
 
-export default AddMealScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    padding: 16,
+    padding: 20,
+    backgroundColor: "#f4f4f4",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#333",
   },
   input: {
-    height: 40,
-    borderColor: "#ccc",
     borderWidth: 1,
-    marginBottom: 12,
-    paddingHorizontal: 8,
+    borderColor: "#ccc",
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "white",
+    marginBottom: 10,
   },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 12,
-  },
-  imagePicker: {
-    backgroundColor: "#87CEEB",
-    padding: 10,
+  button: {
+    backgroundColor: "#007bff",
+    padding: 15,
+    borderRadius: 10,
     alignItems: "center",
-    marginBottom: 12,
+    marginVertical: 10,
+    elevation: 3,
   },
-  imagePickerText: {
+  buttonText: {
     color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
   },
-  image: {
-    width: 200,
-    height: 200,
-    marginBottom: 12,
-    alignSelf: "center",
+  list: {
+    marginTop: 10,
+  },
+  listItem: {
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    marginVertical: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  selectedContainer: {
+    height: 150,
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 10,
+  },
+  selectedScroll: {
+    flex: 1,
+  },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  selectedFood: {
+    fontSize: 18,
+    marginBottom: 10,
+  },
+  scanButton: {
+    position: "absolute",
+    bottom: 30,
+    right: 30,
+    backgroundColor: "#007bff",
+    padding: 15,
+    borderRadius: 50,
+    elevation: 5,
+  },
+  scanButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  cameraContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  foodText: {
+    fontSize: 16,
+    color: "#333",
+    padding: 10,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "red",
+    padding: 10,
+    borderRadius: 10,
+  },
+  closeButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
